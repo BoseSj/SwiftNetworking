@@ -1,0 +1,856 @@
+//
+//  NewPostJobDetailsVC.swift
+//  Connectar
+//
+//  Created by SJ Basak on 04/11/24.
+//
+
+
+import UIKit
+import GooglePlaces
+import SwiftyJSON
+
+
+class NewPostJobDetailsVC: UIViewController {
+    
+    // MARK: IBOutlet
+    @IBOutlet weak var txtFld_pickUpLoc              : UITextField!
+    var pickUpLat = String()
+    var pickUpLong = String()
+    
+    @IBOutlet weak var txtFld_pickUpCompanyName      : UITextField!
+    @IBOutlet weak var txtFld_pickUpPointofContact   : UITextField!
+    @IBOutlet weak var txtFld_pickUpContactNun       : UITextField!
+    @IBOutlet weak var txtFld_pickUpEmail            : UITextField!
+    @IBOutlet weak var txtFld_pickUpDateTime         : UITextField!
+    
+    @IBOutlet weak var txtFld_dropOffLoc             : UITextField!
+    var dropOffLat = String()
+    var dropOffLong = String()
+    
+    @IBOutlet weak var txtFld_dropOffCompanyName     : UITextField!
+    @IBOutlet weak var txtFld_dropOffPointofContact  : UITextField!
+    @IBOutlet weak var txtFld_dropOffContactNun      : UITextField!
+    @IBOutlet weak var txtFld_dropOffEmail           : UITextField!
+    @IBOutlet weak var txtFld_dropOffDateTime        : UITextField!
+    
+    @IBOutlet weak var txtFld_additionalInfo         : UITextField!
+    
+    // Button
+    @IBOutlet weak var bttn_back   : UIButton!
+    @IBOutlet weak var bttn_saveNContinue   : UIButton!
+
+    
+    // Location Vars
+    var isSource: Bool?
+    var autocompleteController = SelectAreaVC()
+    
+    // Pickers
+    var pickerToolbar: UIToolbar?
+    var datePicker = UIDatePicker()
+    
+    // Data and Time
+    var currentDateTimeText = UITextField()
+    
+    // PageData
+    var pageData             =   SubmitJobDetailsData()
+    var oldData              =   SubmitJobDetailsData()
+    
+    // NavKey
+    var navFrom: String!
+    
+    
+    override func viewDidLoad() {
+        super.viewDidLoad()
+
+        // Customizing View
+        self.setUpView()
+        
+        for bttn in [
+            bttn_back,
+            bttn_saveNContinue
+        ]{
+            bttn?.layer.cornerRadius = 12
+            bttn?.layer.masksToBounds = true
+        }
+        
+        // Setting Content Type
+        self.txtFld_pickUpCompanyName.autocapitalizationType = .words
+        self.txtFld_dropOffCompanyName.autocapitalizationType = .words
+        
+        self.txtFld_pickUpContactNun.textContentType = .telephoneNumber
+        self.txtFld_dropOffContactNun.textContentType = .telephoneNumber
+        self.txtFld_pickUpContactNun.keyboardType = .numberPad
+        self.txtFld_pickUpContactNun.keyboardType = .numberPad
+        
+        self.txtFld_pickUpEmail.textContentType = .emailAddress
+        self.txtFld_dropOffEmail.textContentType = .telephoneNumber
+        
+        self.view.addTaptoHideKeyboard()
+    }
+    
+    override func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(animated)
+        
+        // Load data
+        if self.navFrom ?? "" == "" {
+            self.oldJobData()
+        }
+    }
+    
+        
+    // MARK: IBAction
+    @IBAction func backAction(_ sender: UIButton) {
+        self.navigationController?.popViewController(animated: true)
+    }
+    
+    @IBAction func saveAndContinueAction(_ sender: UIButton) {
+        if self.validateTxtFlds() {
+            self.validateLocation()
+            
+//            let storyboard = UIStoryboard(name: "NewContractor", bundle: nil)
+//            
+//            let vc = storyboard.instantiateViewController(withIdentifier: "NewPostJobDescriptionVC") as! NewPostJobDescriptionVC
+//            self.loadTotransferData()
+//            vc.pageData = self.pageData
+//            vc.navFrom = self.navFrom ?? ""
+//            
+//            if self.navFrom ?? "" == "" {
+//                vc.oldData = self.oldData
+//            }
+//            
+//            print(" ============== self.navFrom ============== ")
+//            print(self.navFrom ?? "NO JOB")
+//            
+//            self.navigationController?.pushViewController(vc, animated: false)
+        }
+    }
+    
+    
+    // Lat-Long and Current Location
+    @IBAction func pickUpCaptureAction(_ sender: UIButton) {
+        sender.tag = 0
+        self.showLocationAlert(senderTag: sender.tag)
+    }
+    
+    @IBAction func dropOffCaptureAction(_ sender: UIButton) {
+        sender.tag = 1
+        self.showLocationAlert(senderTag: sender.tag)
+    }
+    
+}
+
+
+// MARK: Validation Function & Data Sending Methods
+extension NewPostJobDetailsVC {
+    private func validateTxtFlds() -> Bool {
+        // PickUp Information
+        if (self.txtFld_pickUpLoc.text!).trimmingCharacters(in: .whitespacesAndNewlines) == "" || self.pickUpLat == "" || self.pickUpLong == "" {
+            self.showAlert(message: "Choose Pick-Up Location")
+            return false
+        }
+        if (self.txtFld_pickUpCompanyName.text!).trimmingCharacters(in: .whitespacesAndNewlines) == "" {
+            self.showAlert(message: "Please Enter Pick-Up Company Name")
+            return false
+        }
+        if (self.txtFld_pickUpPointofContact.text!).trimmingCharacters(in: .whitespacesAndNewlines) == "" {
+            self.showAlert(message: "Choose Pick-Up Point Of Contact")
+            return false
+        }
+        if (self.txtFld_pickUpContactNun.text!).trimmingCharacters(in: .whitespacesAndNewlines) == "" {
+            self.showAlert(message: "Enter Pick-Up Contact Number")
+            return false
+        }
+        if (self.txtFld_pickUpContactNun.text!).count < 10 {
+            self.showAlert(message: "Enter Valid Pick-Up Contact Number")
+            return false
+        }
+        
+        if (self.txtFld_pickUpEmail.text!).trimmingCharacters(in: .whitespacesAndNewlines) == "" {
+            self.showAlert(message: "Choose Valid Pick-Up Email")
+            return false
+        }
+        
+        if (self.txtFld_pickUpEmail.text!).isValidEmail == false {
+            self.showAlert(message: "Choose Valid Pick-Up Email")
+            return false
+        }
+        if (self.txtFld_pickUpDateTime.text!).trimmingCharacters(in: .whitespacesAndNewlines) == "" {
+            self.showAlert(message: "Choose Pick-Up Date and Time")
+            return false
+        }
+        
+        // DropOff Information
+        if (self.txtFld_dropOffLoc.text!).trimmingCharacters(in: .whitespacesAndNewlines) == "" || self.dropOffLat == "" || self.dropOffLong == "" {
+            self.showAlert(message: "Choose Drop-Off Location")
+            return false
+        }
+        if (self.txtFld_dropOffCompanyName.text!).trimmingCharacters(in: .whitespacesAndNewlines) == "" {
+            self.showAlert(message: "Please Enter Drop-Off Company Name")
+            return false
+        }
+        if (self.txtFld_dropOffPointofContact.text!).trimmingCharacters(in: .whitespacesAndNewlines) == "" {
+            self.showAlert(message: "Choose Drop-Off Point Of Contact")
+            return false
+        }
+        if (self.txtFld_dropOffContactNun.text!).trimmingCharacters(in: .whitespacesAndNewlines) == "" {
+            self.showAlert(message: "Enter Drop-Off Contact Number")
+            return false
+        }
+        if (self.txtFld_dropOffContactNun.text!).count < 10 {
+            self.showAlert(message: "Enter Valid Drop-Off Contact Number")
+            return false
+        }
+        if (self.txtFld_dropOffEmail.text!).trimmingCharacters(in: .whitespacesAndNewlines) == "" {
+            self.showAlert(message: "Choose Valid Drop-Off Email")
+            return false
+        }
+        
+        if (self.txtFld_dropOffEmail.text!).isValidEmail == false {
+            self.showAlert(message: "Choose Valid Drop-Off Email")
+            return false
+        }
+        if (self.txtFld_dropOffDateTime.text!).trimmingCharacters(in: .whitespacesAndNewlines) == "" {
+            self.showAlert(message: "Choose Drop-Off Date and Time")
+            return false
+        }
+        
+        return true
+    }
+    
+    private func loadTotransferData() {
+        self.pageData = SubmitJobDetailsData()
+        
+        if self.navFrom ?? "" == "" {
+            self.pageData.job_id = self.oldData.job_id
+        }
+        
+        self.pageData.Source        = (self.txtFld_pickUpLoc.text!).trimmingCharacters(in: .whitespacesAndNewlines)
+        self.pageData.Destination   = (self.txtFld_dropOffLoc.text!).trimmingCharacters(in: .whitespacesAndNewlines)
+        
+        if let (formattedDate, formattedTime) = extractDateTime(from: (self.txtFld_pickUpDateTime.text!).trimmingCharacters(in: .whitespacesAndNewlines)) {
+            print("Date:", formattedDate)
+            self.pageData.pickup_date = formattedDate
+            
+            print("Time:", formattedTime)
+            self.pageData.pickup_time = formattedTime
+        }
+        
+        if let (formattedDate, formattedTime) = extractDateTime(from: (self.txtFld_dropOffDateTime.text!).trimmingCharacters(in: .whitespacesAndNewlines)) {
+            print("Date:", formattedDate)
+            self.pageData.delivery_date = formattedDate
+            
+            print("Time:", formattedTime)
+            self.pageData.delivery_time = formattedTime
+        }
+        
+        self.pageData.pickup_location_company_name = (self.txtFld_pickUpCompanyName.text!).trimmingCharacters(in: .whitespacesAndNewlines)
+        self.pageData.pickup_location_contact_person_number = (self.txtFld_pickUpContactNun.text!).trimmingCharacters(in: .whitespacesAndNewlines)
+        
+        self.pageData.source_lat = self.pickUpLat
+        self.pageData.source_long = self.pickUpLong
+        
+        self.pageData.destination_lat = self.dropOffLat
+        self.pageData.destination_long = self.dropOffLong
+        
+        self.pageData.drop_location_company_name = (self.txtFld_dropOffCompanyName.text!).trimmingCharacters(in: .whitespacesAndNewlines)
+        self.pageData.drop_location_contact_person_number = (self.txtFld_dropOffContactNun.text!).trimmingCharacters(in: .whitespacesAndNewlines)
+        
+        self.pageData.pickup_location_main_number = (self.txtFld_pickUpContactNun.text!).trimmingCharacters(in: .whitespacesAndNewlines)
+        self.pageData.pickup_location_email = (self.txtFld_pickUpEmail.text!).trimmingCharacters(in: .whitespacesAndNewlines)
+        self.pageData.pickup_contract = (self.txtFld_pickUpPointofContact.text!).trimmingCharacters(in: .whitespacesAndNewlines)
+        
+        self.pageData.drop_location_main_number = (self.txtFld_dropOffContactNun.text!).trimmingCharacters(in: .whitespacesAndNewlines)
+        self.pageData.drop_location_email = (self.txtFld_dropOffEmail.text!).trimmingCharacters(in: .whitespacesAndNewlines)
+        self.pageData.drop_contract = (self.txtFld_dropOffPointofContact.text!).trimmingCharacters(in: .whitespacesAndNewlines)
+        
+        self.pageData.additionalInfo = (self.txtFld_additionalInfo.text!).trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+    
+    private func oldJobData() {
+        // oldData
+        self.txtFld_pickUpLoc.text               =   self.oldData.Source
+        self.txtFld_dropOffLoc.text              =   self.oldData.Destination
+        self.txtFld_pickUpDateTime.text          =   "\(self.oldData.pickup_date), \(self.oldData.pickup_time)"
+        self.txtFld_dropOffDateTime.text         =   "\(self.oldData.delivery_date), \(self.oldData.delivery_time)"
+        self.txtFld_pickUpCompanyName.text       =   self.oldData.pickup_location_company_name
+        self.txtFld_pickUpContactNun.text        =   self.oldData.pickup_location_contact_person_number
+        self.pickUpLat                           =   self.oldData.source_lat
+        self.pickUpLong                          =   self.oldData.source_long
+        self.dropOffLat                          =   self.oldData.destination_lat
+        self.dropOffLong                         =   self.oldData.destination_long
+        self.txtFld_dropOffCompanyName.text      =   self.oldData.drop_location_company_name
+        self.txtFld_dropOffContactNun.text       =   self.oldData.drop_location_contact_person_number
+        self.txtFld_pickUpContactNun.text        =   self.oldData.pickup_location_main_number
+        self.txtFld_pickUpEmail.text             =   self.oldData.pickup_location_email
+        self.txtFld_pickUpPointofContact.text    =   self.oldData.pickup_contract
+        self.txtFld_dropOffContactNun.text       =   self.oldData.drop_location_main_number
+        self.txtFld_dropOffEmail.text            =   self.oldData.drop_location_email
+        self.txtFld_dropOffPointofContact.text   =   self.oldData.drop_contract
+        self.txtFld_additionalInfo.text          =   self.oldData.additionalInfo
+    }
+}
+
+
+// MARK: - TextField Utils -
+extension NewPostJobDetailsVC: UITextFieldDelegate {
+    func textFieldShouldBeginEditing(_ textField: UITextField) -> Bool {
+        switch textField {
+        case self.txtFld_pickUpDateTime:
+            self.currentDateTimeText = textField
+            //let calendar = Calendar.current
+            let calendar = Calendar(identifier: .gregorian)
+            self.datePicker.minimumDate = calendar.date(byAdding: .minute, value: 5, to: Date())
+            return true
+        case self.txtFld_dropOffDateTime:
+            self.currentDateTimeText = textField
+            
+            if self.txtFld_pickUpDateTime.text != "" {
+                if let pickUpDateAndTime = self.txtFld_pickUpDateTime.text?.getDate(DateTimeFormaterEnum.DayddMMM_hhmma.rawValue) {
+                    datePicker.minimumDate = pickUpDateAndTime
+                }
+            } 
+            else {
+                self.showAlert(message: "Please Select PickUp Date And Time")
+                return false
+            }
+            
+            return true
+        case self.txtFld_pickUpLoc, self.txtFld_dropOffLoc:
+            if textField == self.txtFld_pickUpLoc {
+                self.txtFld_pickUpLoc.tag = 100
+                self.autocompleteClicked(self.txtFld_pickUpLoc)
+            } 
+            else {
+                self.autocompleteClicked(self.txtFld_dropOffLoc)
+            }
+            
+            self.autocompleteController.selectedPlaceCompletion = { place in
+                if self.isSource ?? false {
+                    self.txtFld_pickUpLoc.text = place.formattedAddress
+                    
+                    self.pickUpLat  = "\(place.coordinate.latitude.magnitude)"
+                    self.pickUpLong = "\(place.coordinate.longitude.magnitude)"
+                } else {
+                    self.txtFld_dropOffLoc.text = place.formattedAddress
+                    
+                    self.dropOffLat  = "\(place.coordinate.latitude.magnitude)"
+                    self.dropOffLong = "\(place.coordinate.longitude.magnitude)"
+                }
+                
+                self.getCorrectLatandLong(placeId: place.placeID ?? "")
+                
+                self.dismiss(animated: true, completion: nil)
+            }
+            
+            return false
+        default:
+            return true
+        }
+    }
+    
+    func textField(_ textField: UITextField, shouldChangeCharactersIn range: NSRange, replacementString string: String) -> Bool {
+        switch textField {
+        case self.txtFld_pickUpContactNun,self.txtFld_dropOffContactNun:
+            return string.isValid(.number) || string.isEmpty
+        case self.txtFld_pickUpPointofContact,self.txtFld_dropOffPointofContact:
+            return string.isValid(.alphabetWithSpace) || string.isEmpty
+        default:
+            return true
+        }
+    }
+}
+
+
+// MARK: - Customizing View -
+extension NewPostJobDetailsVC {
+    func setUpView() {
+        // self.applyStyle()
+        self.txtFld_pickUpDateTime.delegate = self
+        self.txtFld_dropOffDateTime.delegate = self
+        
+        self.txtFld_pickUpContactNun.delegate = self
+        self.txtFld_dropOffContactNun.delegate = self
+        
+        self.txtFld_pickUpPointofContact.delegate = self
+        self.txtFld_dropOffPointofContact.delegate = self
+        
+        //create the Toolbar for Cancel and Done buttons
+        self.createUIToolBar()
+        
+        //set date picker mode
+        datePicker.datePickerMode = .dateAndTime
+        let calendar = Calendar(identifier: .gregorian)
+        self.datePicker.minimumDate = calendar.date(byAdding: .minute, value: 30, to: Date())
+        if #available(iOS 14.0, *) {
+            datePicker.preferredDatePickerStyle = .wheels
+        } else {
+            datePicker.preferredDatePickerStyle = .wheels
+        }
+        
+        //add toolbar to textField
+        self.txtFld_pickUpDateTime?.inputAccessoryView = pickerToolbar
+        self.txtFld_dropOffDateTime?.inputAccessoryView = pickerToolbar
+        
+        //add datepicker to textField
+        self.txtFld_pickUpDateTime?.inputView = datePicker
+        self.txtFld_dropOffDateTime?.inputView = datePicker
+        
+        //add Job Locations
+        self.txtFld_pickUpLoc.delegate = self
+        self.txtFld_dropOffLoc.delegate = self
+        
+        // TextField Configuration
+        self.txtFld_dropOffContactNun.keyboardType = .numberPad
+    }
+    
+    func createUIToolBar() {
+        pickerToolbar = UIToolbar()
+        pickerToolbar?.autoresizingMask = .flexibleHeight
+        
+        //customize the toolbar
+        pickerToolbar?.barStyle = .default
+        pickerToolbar?.barTintColor = UIColor.black
+        pickerToolbar?.backgroundColor = UIColor.white
+        pickerToolbar?.isTranslucent = false
+        
+        //add buttons
+        let flexSpace = UIBarButtonItem(barButtonSystemItem: .flexibleSpace, target: nil, action: nil)
+        let doneButton = UIBarButtonItem(barButtonSystemItem: .done, target: self, action:
+                                            #selector(self.doneBtnClicked(_:)))
+        doneButton.tintColor = UIColor.white
+        
+        //add the items to the toolbar
+        pickerToolbar?.items = [flexSpace, doneButton]
+    }
+    
+    @objc func doneBtnClicked(_ button: UIBarButtonItem?) {
+        switch self.currentDateTimeText {
+        case self.txtFld_pickUpDateTime:
+            txtFld_pickUpDateTime?.resignFirstResponder()
+            let formatter = DateFormatter()
+            formatter.dateFormat = DateTimeFormaterEnum.DayddMMM_hhmma.rawValue
+            txtFld_pickUpDateTime?.text = formatter.string(from: datePicker.date)
+            
+            break
+        case self.txtFld_dropOffDateTime:
+            txtFld_dropOffDateTime?.resignFirstResponder()
+            let formatter = DateFormatter()
+            formatter.dateFormat = DateTimeFormaterEnum.DayddMMM_hhmma.rawValue
+            txtFld_dropOffDateTime?.text = formatter.string(from: datePicker.date)
+            break
+        default:
+            break
+        }
+        
+    }
+}
+
+
+// MARK: - Location Manager -
+extension NewPostJobDetailsVC: GMSAutocompleteViewControllerDelegate {
+    // Handle the user's selection.
+    func viewController(_ viewController: GMSAutocompleteViewController, didAutocompleteWith place: GMSPlace) {
+        if isSource ?? false{
+            print(" ============ place.formattedAddress ============ ")
+            print(place.formattedAddress ?? "Unable to fetch location")
+            
+            // self.pickUpLat = "\(place.coordinate.latitude)"
+            // self.pickUpLong = "\(place.coordinate.longitude)"
+            
+            // self.jobPostParam!["source_lat"] = "\(place.coordinate.latitude)"
+            // self.jobPostParam!["source_long"] = "\(place.coordinate.longitude)"
+            // self.jobPostParam!["Source"] = place.formattedAddress
+        }else{
+            print(" ============ place.formattedAddress ============ ")
+            print(place.formattedAddress ?? "Unable to fetch location")
+            
+            // self.dropOffLat = "\(place.coordinate.latitude)"
+            // self.dropOffLong = "\(place.coordinate.longitude)"
+            
+            // self.jobPostParam!["destination_lat"] = "\(place.coordinate.latitude)"
+            // self.jobPostParam!["destination_long"] = "\(place.coordinate.longitude)"
+            // self.jobPostParam!["Destination"] =  place.formattedAddress
+        }
+        self.getCorrectLatandLong(placeId: place.placeID ?? "")
+        
+        dismiss(animated: true, completion: nil)
+    }
+    
+    func getCorrectLatandLong(placeId:String) {
+        let  placesClient = GMSPlacesClient.shared()
+        
+        
+        placesClient.lookUpPlaceID(placeId, callback: { (place, error) -> Void in
+            
+            if let error = error {
+                print("lookup place id query error: \(error.localizedDescription)")
+                
+            }
+            
+            if let place = place {
+                
+                if self.isSource ?? false{
+                    
+                    // self.pickUpLat = "\(place.coordinate.latitude)"
+                    // self.pickUpLong = "\(place.coordinate.longitude)"
+                    
+                    // self.jobPostParam!["source_lat"] = "\(place.coordinate.latitude)"
+                    // self.jobPostParam!["source_long"] = "\(place.coordinate.longitude)"
+                }
+                else{
+                    
+                    // self.dropOffLat = "\(place.coordinate.latitude)"
+                    // self.dropOffLong = "\(place.coordinate.longitude)"
+                    
+                    // self.jobPostParam!["destination_lat"] = "\(place.coordinate.latitude)"
+                    // self.jobPostParam!["destination_long"] = "\(place.coordinate.longitude)"
+                }
+                
+                print("The lat place is: \(place.coordinate.latitude)")
+                print("The long place is: \(place.coordinate.longitude)")
+            }
+        })
+    }
+    
+    func viewController(_ viewController: GMSAutocompleteViewController, didFailAutocompleteWithError error: Error) {
+        // TODO: handle the error.
+        print("Error: ", error.localizedDescription)
+    }
+    
+    // User canceled the operation.
+    func wasCancelled(_ viewController: GMSAutocompleteViewController) {
+        dismiss(animated: true, completion: nil)
+    }
+    
+    // Autocomplete Functionality
+    func autocompleteClicked(_ sender: UITextField) {
+        self.isSource = sender.tag == 100 ? true : false
+        
+        /*
+         let autocompleteController = GMSAutocompleteViewController()
+         autocompleteController.delegate = self
+         self.isSource = sender.tag == 100 ? true : false
+         // Specify the place data types to return.
+         let fields: GMSPlaceField = GMSPlaceField(rawValue: UInt(GMSPlaceField.name.rawValue) |
+         UInt(GMSPlaceField.placeID.rawValue))!
+         autocompleteController.placeFields = fields
+         
+         // Specify a filter.
+         let filter = GMSAutocompleteFilter()
+         filter.type = .address
+         autocompleteController.autocompleteFilter = filter
+         */
+        
+        //Check the input source
+        if self.isSource ?? false {
+            print("pickup location: \(self.txtFld_pickUpLoc.text)")
+            self.autocompleteController.userText = self.txtFld_pickUpLoc.text
+        } else {
+            print("location: \(self.txtFld_dropOffLoc.text)")
+            self.autocompleteController.userText = self.txtFld_dropOffLoc.text
+        }
+        
+        /*present(autoCompleteTest, animated: true) {
+            self.autocompleteController = autoCompleteTest
+        }*/
+        
+        // Display the autocomplete view controller.
+        present(self.autocompleteController, animated: true, completion: nil)
+        
+    }
+    
+    // Location Alerts
+    func showLocationAlert(senderTag: Int) {
+        let alertController = UIAlertController(title: "Capture Location", message: nil, preferredStyle: .alert)
+        
+        let addLocationAction = UIAlertAction(title: "Add Current Location", style: .default) { _ in
+            print("Current Location Added")
+            LocationManager.shared.getUserCurrentAddress { strAddress in
+                let currentAddress = strAddress
+                switch senderTag {
+                case 0:
+                    self.txtFld_pickUpLoc.text = currentAddress
+                    
+                    self.pickUpLat  = "\(LocationManager.shared.getUserLocation().coordinate.latitude.magnitude)"
+                    self.pickUpLong = "\(LocationManager.shared.getUserLocation().coordinate.longitude.magnitude)"
+                    
+                    
+                    // self.jobPostParam!["Source"] = currentAddress
+                    // self.jobPostParam!["source_lat"] = LocationManager.shared.getUserLocation().coordinate.latitude.description
+                    // self.jobPostParam!["source_long"] = LocationManager.shared.getUserLocation().coordinate.longitude.description
+                    return
+                case 1:
+                    self.txtFld_dropOffLoc.text = currentAddress
+                    
+                    self.dropOffLat  = "\(LocationManager.shared.getUserLocation().coordinate.latitude.magnitude)"
+                    self.dropOffLong = "\(LocationManager.shared.getUserLocation().coordinate.longitude.magnitude)"
+                    
+                    // self.jobPostParam!["Destination"] = currentAddress
+                    // self.jobPostParam!["destination_lat"] = LocationManager.shared.getUserLocation().coordinate.latitude.description
+                    // self.jobPostParam!["destination_long"] = LocationManager.shared.getUserLocation().coordinate.longitude.description
+                    return
+                default:
+                    return
+                }
+            }
+        }
+        
+        let setManuallyAction = UIAlertAction(title: "Set Manually", style: .default) { _ in
+            self.showManualLocationAlert(senderTag: senderTag)
+        }
+        
+        let cancelAction = UIAlertAction(title: "Cancel", style: .cancel, handler: nil)
+        
+        alertController.addAction(addLocationAction)
+        alertController.addAction(setManuallyAction)
+        alertController.addAction(cancelAction)
+        
+        present(alertController, animated: true, completion: nil)
+    }
+    
+    // Location Alerts
+    func showManualLocationAlert(senderTag: Int) {
+        let manualLocationAlertController = UIAlertController(title: "Set Location", message: nil, preferredStyle: .alert)
+        
+        manualLocationAlertController.addTextField { textField in
+            textField.placeholder = "Latitude"
+        }
+        manualLocationAlertController.addTextField { textField in
+            textField.placeholder = "Longitude"
+        }
+        
+        let submitAction = UIAlertAction(title: "Submit", style: .default) { _ in
+            guard let latitudeText = manualLocationAlertController.textFields?.first?.text,
+                  let longitudeText = manualLocationAlertController.textFields?.last?.text,
+                  let latitude = Double(latitudeText),
+                  let longitude = Double(longitudeText) else {
+                self.showAlert(message: "Invalid Lat-Long")
+                return
+            }
+            
+            print("Latitude: \(latitude), Longitude: \(longitude)")
+            
+            self.getAddressFromLatLon(
+                senderTag: senderTag,
+                pdblLatitude: "\(latitude)",
+                withLongitude: "\(longitude)"
+            )
+        }
+        
+        let cancelAction = UIAlertAction(title: "Cancel", style: .cancel, handler: nil)
+        
+        manualLocationAlertController.addAction(submitAction)
+        manualLocationAlertController.addAction(cancelAction)
+        
+        self.present(manualLocationAlertController, animated: true, completion: nil)
+    }
+    
+    // Reverse Geo Location
+    func getAddressFromLatLon(
+        senderTag: Int,
+        pdblLatitude: String,
+        withLongitude pdblLongitude: String
+    ) {
+        var center : CLLocationCoordinate2D = CLLocationCoordinate2D()
+        
+        let lat: Double = Double("\(pdblLatitude)")!
+        //21.228124
+        let lon: Double = Double("\(pdblLongitude)")!
+        //72.833770
+        
+        let ceo: CLGeocoder = CLGeocoder()
+        center.latitude = lat
+        center.longitude = lon
+
+        let loc: CLLocation = CLLocation(latitude:center.latitude, longitude: center.longitude)
+        
+        ceo.reverseGeocodeLocation(loc, completionHandler:
+            {(placemarks, error) in
+                if (error != nil)
+                {
+                    print("reverse geodcode fail: \(error!.localizedDescription)")
+                }
+                let pm = placemarks! as [CLPlacemark]
+
+                if pm.count > 0 {
+                    let pm = placemarks![0]
+                    
+                    // print(pm.country)
+                    // print(pm.locality)
+                    // print(pm.subLocality)
+                    // print(pm.thoroughfare)
+                    // print(pm.postalCode)
+                    // print(pm.subThoroughfare)
+                    
+                    var addressString : String = ""
+                    
+                    if pm.subLocality != nil {
+                        addressString = addressString + pm.subLocality! + ", "
+                    }
+                    if pm.thoroughfare != nil {
+                        addressString = addressString + pm.thoroughfare! + ", "
+                    }
+                    if pm.locality != nil {
+                        addressString = addressString + pm.locality! + ", "
+                    }
+                    if pm.country != nil {
+                        addressString = addressString + pm.country! + ", "
+                    }
+                    if pm.postalCode != nil {
+                        addressString = addressString + pm.postalCode! + " "
+                    }
+
+                    print(addressString)
+                    
+                    if senderTag == 0 {
+                        self.txtFld_pickUpLoc.text = addressString
+                        
+                        self.pickUpLat = "\(lat)"
+                        self.pickUpLong = "\(lon)"
+                    }
+                    else if senderTag == 1 {
+                        self.txtFld_dropOffLoc.text = addressString
+                        
+                        self.dropOffLat = "\(lat)"
+                        self.dropOffLong = "\(lon)"
+                    }
+              }
+        })
+    }
+}
+
+
+// MARK: - Utilities -
+extension NewPostJobDetailsVC {
+    func random(digits:Int) -> String {
+        var number = String()
+        for _ in 1...digits {
+           number += "\(Int.random(in: 1...9))"
+        }
+        return number
+    }
+    
+    func extractDate(from dateString: String) -> String? {
+        let dateFormatter = DateFormatter()
+
+        dateFormatter.dateFormat = "dd MMM yyyy, hh:mm a"
+
+        if let date = dateFormatter.date(from: dateString) {
+            let outputDateFormatter = DateFormatter()
+            outputDateFormatter.dateFormat = "yyyy-MM-dd"
+
+            return outputDateFormatter.string(from: date)
+        } else {
+            print("Failed to parse date")
+            return nil
+        }
+    }
+    
+    func extractDateTime(from dateString: String) -> (date: String, time: String)? {
+        let dateFormatter = DateFormatter()
+
+        dateFormatter.dateFormat = "dd MMM yyyy, hh:mm a"
+
+        if let date = dateFormatter.date(from: dateString) {
+            let outputDateFormatter = DateFormatter()
+            outputDateFormatter.dateFormat = "yyyy-MM-dd"
+
+            let formattedDate = outputDateFormatter.string(from: date)
+            
+            let outputTimeFormatter = DateFormatter()
+            outputTimeFormatter.dateFormat = "HH:mm:ss"
+            
+            let formattedTime = outputTimeFormatter.string(from: date)
+
+            return (formattedDate, formattedTime)
+        } else {
+            print("Failed to parse date")
+            return nil
+        }
+    }
+    
+    func validateLocation() {
+        guard let picklat = Double(self.pickUpLat),
+              let picklong = Double(self.pickUpLong) else {
+            self.showAlert(message: "Select Valid PickUp Location")
+            return
+        }
+        
+        guard let dropLat = Double(self.dropOffLat),
+              let dropLong = Double(self.dropOffLong) else {
+            self.showAlert(message: "Select Valid DropOff Location")
+            return
+        }
+        
+        let picklocation = CLLocationCoordinate2D(latitude: picklat, longitude: picklong)
+        let droplocation = CLLocationCoordinate2D(latitude: dropLat, longitude: dropLong)
+        
+        self.GoogleMapGetAPI(
+            source: picklocation,
+            destination: droplocation)
+    }
+    
+    func clearLocation() {
+        self.txtFld_pickUpLoc.text = ""
+        self.pickUpLat.removeAll()
+        self.pickUpLong.removeAll()
+        
+        self.txtFld_dropOffLoc.text = ""
+        self.dropOffLat.removeAll()
+        self.dropOffLong.removeAll()
+    }
+}
+
+
+// MARK: - API-Call -
+extension NewPostJobDetailsVC {
+    /// Google Map API
+    func GoogleMapGetAPI(
+        source: CLLocationCoordinate2D,
+        destination: CLLocationCoordinate2D
+    ) {
+        //HUD.show(to: self.view)
+        if (NetworkState().isInternetAvailable) {
+            AuthService.instance.GMapRouteGetAPI(
+                from: source,
+                to: destination,
+                completion: {(success, data, message) in
+                    if success {
+                        HUD.hide(to: self.view)
+                        
+                        if AuthService.instance.GoogleMapRouteData["routes"].arrayValue.isEmpty {
+                            self.clearLocation()
+                            self.showAlert(message: "There is no route between Selected Location")
+                        }
+                        else {
+                            let storyboard = UIStoryboard(name: "NewContractor", bundle: nil)
+                            
+                            let vc = storyboard.instantiateViewController(withIdentifier: "NewPostJobDescriptionVC") as! NewPostJobDescriptionVC
+                            self.loadTotransferData()
+                            vc.pageData = self.pageData
+                            vc.navFrom = self.navFrom ?? ""
+                            
+                            if self.navFrom ?? "" == "" {
+                                vc.oldData = self.oldData
+                            }
+                            
+                            print(" ============== self.navFrom ============== ")
+                            print(self.navFrom ?? "NO JOB")
+                            
+                            self.navigationController?.pushViewController(vc, animated: false)
+                        }
+                    }
+                    else {
+                        HUD.hide(to: self.view)
+                        self.clearLocation()
+                        self.showAlert(message: message!)
+                    }
+                })
+        }
+        else {
+            HUD.hide(to: self.view)
+            self.showAlert(message: "No Active Internet")
+        }
+    }
+}
